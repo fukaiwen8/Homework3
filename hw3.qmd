@@ -1,6 +1,6 @@
 ---
 title: "Homework 3"
-author: "[Insert your name here]{style='background-color: yellow;'}"
+author: "[Kaiwen Fu]{style='background-color: yellow;'}"
 toc: true
 title-block-banner: true
 title-block-style: default
@@ -47,15 +47,18 @@ Regression with categorical covariate and $t$-Test
 
 Read the wine quality datasets from the specified URLs and store them in data frames `df1` and `df2`.
 
-```R
+```{R}
 url1 <- "https://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/winequality-white.csv"
 
 url2 <- "https://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/winequality-red.csv"
 
 
-df1 <- ... # Insert your code here
-df2 <- ... # Insert your code here
+# read them
+df1 <- read.csv("https://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/winequality-red.csv", sep=";")
+df2 <- read.csv("https://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/winequality-white.csv", sep=";")
+
 ```
+
 
 ---
 
@@ -73,6 +76,31 @@ Perform the following tasks to prepare the data frame `df` for analysis:
 ```R
 df <- ... # Insert your code here
 ```
+```{R}
+
+
+# Combine Them
+df1$type <- 'red'
+df2$type <- 'white'
+df <- rbind(df1, df2)
+
+# Rename Them
+names(df) <- gsub(" ", "_", names(df))
+
+# Remove column
+df <- df[, !names(df) %in% c("fixed_acidity", "free_sulfur_dioxide")]
+
+# Transfer type to factor
+df$type <- as.factor(df$type)
+
+# remove empty
+df <- na.omit(df)
+
+
+dim(df)
+
+```
+
 
 
 Your output to `R dim(df)` should be
@@ -95,10 +123,30 @@ Recall from STAT 200, the method to compute the $t$ statistic for the the differ
 3. Using `sp_squared` and `diff_mean`, compute the $t$ Statistic, and store its value in a variable called `t1`.
 
 
-```R
-diff_mean <- ... # Insert your code here
-sp <-  ... # Insert your code here
-t1 <-  ... # Insert your code here
+
+
+
+
+
+
+
+```{R}
+
+# Calculate mean quality difference
+mean_red <- mean(df[df$type == 'red', 'quality'])
+mean_white <- mean(df[df$type == 'white', 'quality'])
+diff_mean <- mean_red - mean_white
+
+# Compute pooled variance
+n_red <- nrow(df[df$type == 'red', ])
+n_white <- nrow(df[df$type == 'white', ])
+var_red <- var(df[df$type == 'red', 'quality'])
+var_white <- var(df[df$type == 'white', 'quality'])
+sp_squared <- ((n_red - 1) * var_red + (n_white - 1) * var_white) / (n_red + n_white - 2)
+
+# Calculate t-statistic
+t1 <- diff_mean / sqrt(sp_squared * (1/n_red + 1/n_white))
+
 ```
 
 
@@ -110,10 +158,13 @@ Equivalently, R has a function called `t.test()` which enables you to perform a 
 
 Perform a two-sample t-test to compare the quality of white and red wines using the `t.test()` function with the setting `var.equal=TRUE`. Store the t-statistic in `t2`.
 
-```R
-t_test <- t.test(...) # Insert your code here
-t2 <- ... # Insert your code here
+```{R}
+#Two-sample t-test
+t_test <- t.test(quality ~ type, data = df, var.equal = TRUE)
+t2 <- t_test$statistic
+
 ```
+
 
 ---
 
@@ -121,9 +172,21 @@ t2 <- ... # Insert your code here
 
 Fit a linear regression model to predict `quality` from `type` using the `lm()` function, and extract the $t$-statistic for the `type` coefficient from the model summary. Store this $t$-statistic in `t3`.
 
-```R
-fit <- lm(...) # Insert your here
-t3 <- ... # Insert your here
+
+```{R}
+# Fit the linear model
+fit <- lm(quality ~ type, data = df)
+
+# Extract the summary
+summary_fit <- summary(fit)
+
+# Get the names
+coef_names <- rownames(summary_fit$coefficients)
+
+# Find the name that contains type and extract t value
+type_coef_name <- coef_names[grep("type", coef_names)]
+t3 <- summary_fit$coefficients[type_coef_name, "t value"]
+
 ```
 
 
@@ -133,9 +196,12 @@ t3 <- ... # Insert your here
 
 Print a vector containing the values of `t1`, `t2`, and `t3`. What can you conclude from this? Why?
 
-```R
-c(t1, t2, t3) # Insert your code here
+```{R}
+# Print
+c(t1, t2, t3)
+
 ```
+
 
 
 
@@ -158,8 +224,14 @@ Collinearity
 Fit a linear regression model with all predictors against the response variable `quality`. Use the `broom::tidy()` function to print a summary of the fitted model. What can we conclude from the model summary?
 
 
-```R
-... # Insert your code here
+```{R}
+# Full model regression
+full_model <- lm(quality ~ ., data = df)
+
+# Summary with broom
+library(broom)
+tidy_full_model <- tidy(full_model)
+
 ```
 
 
@@ -170,13 +242,13 @@ Fit a linear regression model with all predictors against the response variable 
 Fit two **simple** linear regression models using `lm()`: one with only `citric_acid` as the predictor, and another with only `total_sulfur_dioxide` as the predictor. In both models, use `quality` as the response variable. How does your model summary compare to the summary from the previous question?
 
 
-```R
-model_citric <- ... # Insert your code here
+```{R}
+model_citric <- lm(quality ~ citric.acid, data = df)
+model_sulfur <- lm(quality ~ total.sulfur.dioxide, data = df)
+
+
 ```
 
-```R
-model_sulfur <- ... # Insert your code here
-```
 
 
 ---
@@ -185,8 +257,12 @@ model_sulfur <- ... # Insert your code here
 
 Visualize the correlation matrix of all numeric columns in `df` using `corrplot()`
 
-```R
-df %>% ... # Insert your code here
+```{R}
+library(corrplot)
+numeric_columns <- sapply(df, is.numeric)
+cor_matrix <- cor(df[, numeric_columns])
+corrplot(cor_matrix, method = "circle")
+
 ```
 
 
@@ -198,9 +274,12 @@ df %>% ... # Insert your code here
 Compute the variance inflation factor (VIF) for each predictor in the full model using `vif()` function. What can we conclude from this?
 
 
-```R
-... # Insert your code here
+```{R}
+library(car)
+vif(full_model)
+
 ```
+
 
 
 
@@ -222,9 +301,13 @@ Variable selection
 
 Run a backward stepwise regression using a `full_model` object as the starting model. Store the final formula in an object called `backward_formula` using the built-in `formula()` function in R
 
-```R
-... # Insert your code here
+```{R}
+
+backward_model <- step(full_model, direction = "backward")
+backward_formula <- formula(backward_model)
+
 ```
+
 
 ---
 
@@ -232,9 +315,15 @@ Run a backward stepwise regression using a `full_model` object as the starting m
 
 Run a forward stepwise regression using a `null_model` object as the starting model. Store the final formula in an object called `forward_formula` using the built-in `formula()` function in R
 
-```R
-... # Insert your code here
+```{R}
+
+null_model <- lm(quality ~ 1, data = df)
+forward_model <- step(null_model, direction = "forward", scope = formula(full_model))
+forward_formula <- formula(forward_model)
+
+
 ```
+
 
 
 
@@ -248,16 +337,34 @@ Run a forward stepwise regression using a `null_model` object as the starting mo
 
 3. Then, use the `cv.glmnet()` function to perform LASSO and Ridge regression with `X` and `y`.
 
-```R
-... # Insert your code here. 
+```{R}
+library(glmnet)
+
+y <- df$quality  # create 'y' vector
+X <- model.matrix(formula(full_model), df)  # create matrix X
+X <- X[, -1]  # remove the intercept column if necessary
+
+# Check X
+head(X)
+
+
+cv_fit_lasso <- cv.glmnet(X, y, alpha=1)
+cv_fit_ridge <- cv.glmnet(X, y, alpha=0)
+
+
+
 ```
+
 
 Create side-by-side plots of the ridge and LASSO regression results. Interpret your main findings. 
 
-```R
-par(mfrow=c(1, 2))
-... # Insert your code here. 
+```{R}
+# make graph
+par(mfrow=c(1,2))
+plot(cv_fit_lasso)
+plot(cv_fit_ridge)
 ```
+
 
 ---
 
@@ -267,6 +374,28 @@ Print the coefficient values for LASSO regression at the `lambda.1se` value? Wha
 
 Store the variable names with non-zero coefficients in `lasso_vars`, and create a formula object called `lasso_formula` using the `make_formula()` function provided in the Appendix. 
 
+```{R}
+
+lasso_coef <- coef(cv_fit_lasso, s = "lambda.1se")
+
+
+lasso_coef_vec <- as.vector(lasso_coef)
+lasso_vars <- rownames(lasso_coef)[lasso_coef_vec != 0]
+
+#remove intercept
+lasso_vars <- lasso_vars[lasso_vars != "(Intercept)"]
+
+
+formula_str <- paste("quality ~", paste(lasso_vars, collapse = " + "))
+
+
+lasso_formula <- as.formula(formula_str)
+
+print(lasso_formula)
+print(lasso_vars)
+
+
+```
 
 ---
 
@@ -276,6 +405,26 @@ Print the coefficient values for ridge regression at the `lambda.1se` value? Wha
 
 Store the variable names with non-zero coefficients in `ridge_vars`, and create a formula object called `ridge_formula` using the `make_formula()` function provided in the Appendix. 
 
+```{R}y
+ridge_coef <- coef(cv_fit_ridge, s = "lambda.1se")
+
+
+ridge_coef_vec <- as.vector(ridge_coef)
+
+ridge_vars <- rownames(ridge_coef)[ridge_coef_vec != 0]
+
+
+ridge_vars <- ridge_vars[ridge_vars != "(Intercept)"]
+
+formula_str <- paste("quality ~", paste(ridge_vars, collapse = " + "))
+
+# Transfer
+ridge_formula <- as.formula(formula_str)
+
+# Print
+print(ridge_formula)
+
+```
 
 
 ---
@@ -283,6 +432,9 @@ Store the variable names with non-zero coefficients in `ridge_vars`, and create 
 ###### 3.6  (10 points)
 
 What is the difference between stepwise selection, LASSO and ridge based on you analyses above?
+```{R}
+# Stepwise selection is more like giving a try, LASSO is pick the best one, Ridge is get all but try a little for each.
+```
 
 
 
@@ -306,6 +458,11 @@ Variable selection
 ###### 4.1  (5 points)
 
 Excluding `quality` from `df` we have $10$ possible predictors as the covariates. How many different models can we create using any subset of these $10$ coavriates as possible predictors? Justify your answer. 
+```{R}
+#Its 2^10 -1
+number_of_models <- 2^10 - 1
+print(number_of_models)
+```
 
 ---
 
@@ -314,9 +471,12 @@ Excluding `quality` from `df` we have $10$ possible predictors as the covariates
 
 Store the names of the predictor variables (all columns except `quality`) in an object called `x_vars`.
 
-```R
+```{R}
+library(dplyr)
+library(purrr)
 x_vars <- colnames(df %>% select(-quality))
 ```
+
 
 Use: 
 
@@ -325,15 +485,17 @@ Use:
 
 to **generate all possible linear regression formulas** using the variables in `x_vars`. This is most optimally achieved using the `map()` function from the `purrr` package.
 
-```R
+```{R}
 formulas <- map(
   1:length(x_vars),
-  \(x){
-    vars <- combn(...) # Insert code here
-    map(vars, ...) # Insert code here
+  function(k) {
+    combn(x_vars, k, function(vars) {
+      paste("quality ~", paste(vars, collapse = " + "))
+    }, simplify = FALSE)
   }
 ) %>% unlist()
 ```
+
 
 If your code is right the following command should return something along the lines of:
 
@@ -345,15 +507,29 @@ sample(formulas, 4) %>% as.character()
 # [3] "quality ~ volatile_acidity + citric_acid + residual_sugar + total_sulfur_dioxide + density + pH + sulphates + alcohol"
 # [4] "quality ~ citric_acid + chlorides + total_sulfur_dioxide + pH + alcohol + type"  
 ```
+```{R}
+sample(formulas, 4) %>% as.character()
+```
+
 
 ---
 
 ###### 4.3  (10 points)
 Use `map()` and `lm()` to fit a linear regression model to each formula in `formulas`, using `df` as the data source. Use `broom::glance()` to extract the model summary statistics, and bind them together into a single tibble of summaries using the `bind_rows()` function from `dplyr`.
 
-```R
-models <- map(formulas, ...) # Insert your code here
-summaries <- map(models, ...) # Insert your code here
+
+```{R}
+library(purrr)
+library(broom)
+library(dplyr)
+
+
+
+models <- map(formulas, ~lm(.x, data = df))
+
+summaries <- map(models, glance) %>% bind_rows()
+
+
 ```
 
 
@@ -365,15 +541,21 @@ summaries <- map(models, ...) # Insert your code here
 
 Extract the `adj.r.squared` values from `summaries` and use them to identify the formula with the _**highest**_ adjusted R-squared value.
 
-```R
-... # Insert your code here
+```{R}
+adj_r_squared <- summaries$adj.r.squared
+
+
+best_model_index <- which.max(adj_r_squared)
+best_formula <- formulas[[best_model_index]]
 ```
+
 
 Store resulting formula as a variable called `rsq_formula`.
 
-```R
-rsq_formula <- ... # Insert your code
+```{R}
+rsq_formula <- best_formula
 ```
+
 
 ---
 
@@ -382,16 +564,20 @@ rsq_formula <- ... # Insert your code
 Extract the `AIC` values from `summaries` and use them to identify the formula with the **_lowest_** AIC value.
 
 
-```R
-... # Insert your code here
+```{R}
+aic_values <- summaries$AIC
+best_model_index <- which.min(aic_values)
+best_formula <- formulas[[best_model_index]]
 ```
+
 
 Store resulting formula as a variable called `aic_formula`.
 
 
-```R
-aic_formula <- ... # Insert your code
+```{R}
+aic_formula <- best_formula
 ```
+
 
 ---
 
@@ -399,9 +585,13 @@ aic_formula <- ... # Insert your code
 
 Combine all formulas shortlisted into a single vector called `final_formulas`.
 
-```R
+```{R}
+
 null_formula <- formula(null_model)
 full_formula <- formula(full_model)
+
+
+
 
 final_formulas <- c(
   null_formula,
@@ -416,10 +606,19 @@ final_formulas <- c(
 ```
 
 * Are `aic_formula` and `rsq_formula` the same? How do they differ from the formulas shortlisted in question 3?
+```{R}
+#No, they are not the same, they are differ from Q3 because those formulas are generated through specific variable selection methods rather than a single performance metric.
+```
 
 * Which of these is more reliable? Why? 
+```{R}
+#aic might be more reliable because it consider more than rsq.
+```
 
 * If we had a dataset with $10,000$ columns, which of these methods would you consider for your analyses? Why?
+```{R}
+#I would probably use Lasso because it can effectively handle a large number of variables and can perform variable selection by shrinking the coefficients.
+```
 
 ---
 
@@ -428,14 +627,25 @@ final_formulas <- c(
 
 Use `map()` and `glance()` to extract the `sigma, adj.r.squared, AIC, df`, and `p.value` statistics for each model obtained from `final_formulas`. Bind them together into a single data frame `summary_table`. Summarize your main findings.
 
-```R
-summary_table <- map(
-  final_formulas, 
-  \(x) ... # Insert your code here
-) %>% bind_rows()
 
+```{R}
+library(broom)
+library(purrr)
+df$typewhite <- ifelse(df$type == "white", 1, 0)
+
+
+summary_table <- map(
+  final_formulas,
+  ~broom::glance(lm(as.formula(.x), data = df))
+) %>%
+  dplyr::bind_rows() %>%
+  dplyr::select(sigma, adj.r.squared, AIC, df, p.value)
+  
+# Use knit
 summary_table %>% knitr::kable()
+
 ```
+
 
 
 
